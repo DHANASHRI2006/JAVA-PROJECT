@@ -1,0 +1,234 @@
+import java.sql.*;
+import java.util.Scanner;
+import java.util.InputMismatchException;
+
+public class TransportManagementSystem {
+    private static Scanner scanner = new Scanner(System.in);
+
+    static {
+        try {
+            // Load MySQL JDBC Driver
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            System.out.println("MySQL Driver not found. Please add the connector JAR file to the classpath.");
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        try {
+            while (true) {
+                System.out.println("\nWelcome to the Transport Management System");
+                System.out.println("1. Signup");
+                System.out.println("2. Login");
+                System.out.println("3. Exit");
+                System.out.print("Enter your choice: ");
+
+                int choice;
+                try {
+                    choice = scanner.nextInt();
+                    scanner.nextLine(); // Consume newline character
+                } catch (InputMismatchException e) {
+                    System.out.println("Invalid input! Please enter a number (1, 2, or 3).");
+                    scanner.nextLine(); // Clear invalid input
+                    continue; // Restart loop
+                }
+
+                switch (choice) {
+                    case 1:
+                        signup();
+                        break;
+                    case 2:
+                        login();
+                        break;
+                    case 3:
+                        System.out.println("Exiting...");
+                        return;
+                    default:
+                        System.out.println("Invalid choice! Please enter 1, 2, or 3.");
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("An unexpected error occurred.");
+            e.printStackTrace();
+        }
+    }
+
+    // Connect to MySQL database
+    public static Connection connect() throws SQLException {
+        String url = "jdbc:mysql://localhost:3306/transport_system?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
+        String username = "sri";  // Replace with your MySQL username
+        String password = "1234";  // Replace with your MySQL password
+        return DriverManager.getConnection(url, username, password);
+    }
+
+    // Signup method
+    public static void signup() {
+        System.out.print("Enter your name: ");
+        String name = scanner.nextLine();
+        System.out.print("Enter your email: ");
+        String email = scanner.nextLine();
+        System.out.print("Enter your password: ");
+        String password = scanner.nextLine();
+
+        try (Connection conn = connect()) {
+            // Check if the email is already registered
+            String checkQuery = "SELECT COUNT(*) FROM customers WHERE email = ?";
+            try (PreparedStatement checkStmt = conn.prepareStatement(checkQuery)) {
+                checkStmt.setString(1, email);
+                ResultSet rs = checkStmt.executeQuery();
+                if (rs.next() && rs.getInt(1) > 0) {
+                    System.out.println("This email is already registered. Please log in or use a different email.");
+                    return;
+                }
+            }
+
+            // Insert new user into the database
+            String query = "INSERT INTO customers (name, email, password) VALUES (?, ?, ?)";
+            try (PreparedStatement stmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
+                stmt.setString(1, name);
+                stmt.setString(2, email);
+                stmt.setString(3, password);
+                stmt.executeUpdate();
+
+                ResultSet rs = stmt.getGeneratedKeys();
+                if (rs.next()) {
+                    int customerId = rs.getInt(1);
+                    System.out.println("Signup successful! Your customer ID is: " + customerId);
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error during signup. Please try again.");
+            e.printStackTrace();
+        }
+    }
+
+    // Login method
+    public static void login() {
+        System.out.print("Enter your email: ");
+        String email = scanner.nextLine();
+        System.out.print("Enter your password: ");
+        String password = scanner.nextLine();
+
+        try (Connection conn = connect()) {
+            String query = "SELECT * FROM customers WHERE email = ? AND password = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(query)) {
+                stmt.setString(1, email);
+                stmt.setString(2, password);
+                ResultSet rs = stmt.executeQuery();
+
+                if (rs.next()) {
+                    int customerId = rs.getInt("customer_id");
+                    System.out.println("Login successful! Your customer ID is: " + customerId);
+                    manageBooking(customerId);
+                } else {
+                    System.out.println("Invalid credentials!");
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error during login. Please try again.");
+            e.printStackTrace();
+        }
+    }
+
+    // Manage booking for the logged-in customer
+    public static void manageBooking(int customerId) {
+        System.out.println("\nBooking Menu:");
+        System.out.println("1. Make a booking");
+        System.out.println("2. View existing bookings");
+        System.out.println("3. Exit");
+        System.out.print("Enter your choice: ");
+        int choice = scanner.nextInt();
+        scanner.nextLine(); // Consume newline
+
+        switch (choice) {
+            case 1:
+                makeBooking(customerId);
+                break;
+            case 2:
+                viewBookings(customerId);
+                break;
+            case 3:
+                System.out.println("Exiting...");
+                return;
+            default:
+                System.out.println("Invalid choice! Try again.");
+        }
+    }
+
+    // Method to make a booking
+    public static void makeBooking(int customerId) {
+        System.out.print("Enter the number of seats: ");
+        int seatsBooked = scanner.nextInt();
+        scanner.nextLine(); // Consume newline
+
+        System.out.print("Enter the travel date (YYYY-MM-DD HH:MM:SS): ");
+        String travelDateStr = scanner.nextLine();
+
+        System.out.print("Enter the starting location: ");
+        String startingLocation = scanner.nextLine();
+
+        System.out.print("Enter the destination: ");
+        String destination = scanner.nextLine();
+
+        System.out.print("Enter seat preferences: ");
+        String seatPreferences = scanner.nextLine();
+
+        System.out.print("Enter payment information: ");
+        String paymentInfo = scanner.nextLine();
+
+        double totalCost = seatsBooked * 50.0; // Example cost per seat
+
+        try (Connection conn = connect()) {
+            String query = "INSERT INTO bookings (customer_id, seats_booked, travel_date, starting_location, " +
+                    "destination, seat_preferences, payment_info, total_cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            try (PreparedStatement stmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
+                stmt.setInt(1, customerId);
+                stmt.setInt(2, seatsBooked);
+                stmt.setTimestamp(3, Timestamp.valueOf(travelDateStr));
+                stmt.setString(4, startingLocation);
+                stmt.setString(5, destination);
+                stmt.setString(6, seatPreferences);
+                stmt.setString(7, paymentInfo);
+                stmt.setDouble(8, totalCost);
+                stmt.executeUpdate();
+
+                ResultSet rs = stmt.getGeneratedKeys();
+                if (rs.next()) {
+                    int bookingId = rs.getInt(1);
+                    System.out.println("Booking successful! Your booking ID is: " + bookingId);
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error during booking. Please try again.");
+            e.printStackTrace();
+        }
+    }
+
+    // Method to view all bookings for a customer
+    public static void viewBookings(int customerId) {
+        try (Connection conn = connect()) {
+            String query = "SELECT * FROM bookings WHERE customer_id = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(query)) {
+                stmt.setInt(1, customerId);
+                ResultSet rs = stmt.executeQuery();
+
+                System.out.println("\nYour bookings:");
+                while (rs.next()) {
+                    System.out.println("Booking ID: " + rs.getInt("booking_id"));
+                    System.out.println("Seats booked: " + rs.getInt("seats_booked"));
+                    System.out.println("Travel date: " + rs.getTimestamp("travel_date"));
+                    System.out.println("Starting location: " + rs.getString("starting_location"));
+                    System.out.println("Destination: " + rs.getString("destination"));
+                    System.out.println("Seat preferences: " + rs.getString("seat_preferences"));
+                    System.out.println("Payment info: " + rs.getString("payment_info"));
+                    System.out.println("Total cost: $" + rs.getDouble("total_cost"));
+                    System.out.println("-----");
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error fetching bookings. Please try again.");
+            e.printStackTrace();
+        }
+    }
+}
