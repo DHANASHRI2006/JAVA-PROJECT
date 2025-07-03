@@ -1,0 +1,32 @@
+CREATE DATABASE transport_system;
+
+USE transport_system;
+
+CREATE TABLE customers (
+    customer_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(100) UNIQUE,
+    password VARCHAR(100)
+);
+
+
+CREATE TABLE bookings (
+    booking_id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT,
+    seats_booked INT,
+    travel_date DATETIME,
+    starting_location VARCHAR(100),
+    destination VARCHAR(100),
+    seat_preferences VARCHAR(100),
+    payment_info VARCHAR(100),
+    total_cost DECIMAL(10, 2),
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+);
+
+CREATE TABLE feedback (
+    feedback_id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT,
+    rating INT,
+    comments TEXT,
+    FOREIGN KEY (booking_id) REFERENCES bookings(booking_id)
+);
